@@ -180,6 +180,21 @@ def test_call_participant_grok_read_only_isolated(tmp_path, monkeypatch):
     assert not list((tmp_path / "homes" / "grok").glob("prompt-*"))  # prompt file cleaned up
 
 
+def test_call_participant_codex_reads_reply_as_utf8(monkeypatch):
+    """Codex writes its reply file in UTF-8; a cp932 locale (Japanese Windows) must not matter."""
+    reply = "”Reply” 日本語"
+
+    async def fake_run(cmd, env, cwd, stdin=None, timeout=None):
+        with open(cmd[cmd.index("-o") + 1], "w", encoding="utf-8") as f:
+            f.write(reply)
+        return 0, "", ""
+
+    monkeypatch.setattr(ac.shutil, "which", lambda name: name)
+    monkeypatch.setattr(ac, "_run", fake_run)
+    p = ac.Participant("codex", "gpt-6-sol", None)
+    assert run(ac.call_participant(p, "hi", ".")) == reply
+
+
 def test_sync_login_hands_rotated_token_back(tmp_path):
     real = tmp_path / "real" / "auth.json"
     real.parent.mkdir()
